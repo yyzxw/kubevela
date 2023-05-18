@@ -503,7 +503,7 @@ func SharedByApp(app *v1beta1.Application) ApplyOption {
 	}
 }
 
-// DryRunAll executing all validation, etc without persisting the change to storage.
+// DryRunAll executing all validation, etc. without persisting the change to storage.
 func DryRunAll() ApplyOption {
 	return func(a *applyAction, existing, _ client.Object) error {
 		a.dryRun = true

@@ -586,3 +586,77 @@ func TestFilterSpecialAnn(t *testing.T) {
 	dp.Annotations = map[string]string{oam.AnnotationLastAppliedConfig: "xxx"}
 	assert.Equal(t, true, trimLastAppliedConfigurationForSpecialResources(dp))
 }
+
+func TestGetAppKey(t *testing.T) {
+	tests := []struct {
+		name string
+		app  *v1beta1.Application
+		want string
+	}{
+		{
+			name: "test namespace is empty use default",
+			app: &v1beta1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+			},
+			want: "default/test",
+		},
+		{
+			name: "test namespace is user defined",
+			app: &v1beta1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-2",
+					Namespace: "kube-system",
+				},
+			},
+			want: "kube-system/test-2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, GetAppKey(tt.app), "GetAppKey(%v)", tt.app)
+		})
+	}
+}
+
+func TestGetControlledBy(t *testing.T) {
+	tests := []struct {
+		name string
+		obj  client.Object
+		want string
+	}{
+		{
+			name: "test object labels is nil",
+			obj:  basicTestDeployment(),
+			want: "",
+		},
+		{
+			name: "test object labels is not nil but no app name",
+			obj: func() client.Object {
+				deepCopy := basicTestDeployment().DeepCopy()
+				deepCopy.SetLabels(map[string]string{"key": "val"})
+				return deepCopy
+			}(),
+			want: "",
+		},
+		{
+			name: "test get controlled by successfully",
+			obj: func() client.Object {
+				deepCopy := basicTestDeployment().DeepCopy()
+				labels := map[string]string{
+					oam.LabelAppName:      "app",
+					oam.LabelAppNamespace: "default",
+				}
+				deepCopy.SetLabels(labels)
+				return deepCopy
+			}(),
+			want: "default/app",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, GetControlledBy(tt.obj), "GetControlledBy(%v)", tt.obj)
+		})
+	}
+}

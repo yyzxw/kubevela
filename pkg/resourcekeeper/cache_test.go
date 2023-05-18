@@ -151,3 +151,120 @@ func TestResourceCacheExistenceCheck(t *testing.T) {
 	r.False(cache.exists(createResource("app-no-shared-by", "test", "")))
 	r.True(cache.exists(createResource("app-shared-by", "ex", "x/y,test/app,ex/app-shared-by")))
 }
+
+func TestIsResourceManagedByApplication(t *testing.T) {
+	type args struct {
+		manifest *unstructured.Unstructured
+		app      *v1beta1.Application
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test app name equals controlledBy name should return true",
+			args: args{
+				manifest: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								oam.LabelAppName:      "app",
+								oam.LabelAppNamespace: "test",
+							},
+						},
+					},
+				},
+				app: &v1beta1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app",
+						Namespace: "test",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "test resource not shared should return false",
+			args: args{
+				manifest: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								oam.LabelAppName:      "app",
+								oam.LabelAppNamespace: "default",
+							},
+							"resourceVersion": "1",
+						},
+					},
+				},
+				app: &v1beta1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app",
+						Namespace: "test",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test resource shared but not controlled by current app should return false",
+			args: args{
+				manifest: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								oam.LabelAppName:      "app",
+								oam.LabelAppNamespace: "default",
+							},
+							"annotations": map[string]interface{}{
+								oam.AnnotationAppSharedBy: "app/default",
+							},
+							"resourceVersion": "1",
+						},
+					},
+				},
+				app: &v1beta1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app",
+						Namespace: "test",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test resource shared and controlled by current app should return true",
+			args: args{
+				manifest: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								oam.LabelAppName:      "app",
+								oam.LabelAppNamespace: "default",
+							},
+							"annotations": map[string]interface{}{
+								oam.AnnotationAppSharedBy: "test/app,test2/app2",
+							},
+							"resourceVersion": "1",
+						},
+					},
+				},
+				app: &v1beta1.Application{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app",
+						Namespace: "test",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsResourceManagedByApplication(tt.args.manifest, tt.args.app); got != tt.want {
+				t.Errorf("IsResourceManagedByApplication() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
