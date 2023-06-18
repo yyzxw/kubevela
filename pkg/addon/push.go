@@ -268,6 +268,10 @@ func handlePushResponse(resp *http.Response) error {
 		if err != nil {
 			return err
 		}
+		defer func(body io.ReadCloser) {
+			_ = body.Close()
+		}(resp.Body)
+
 		return getChartMuseumError(b, resp.StatusCode)
 	}
 	_, _ = fmt.Fprintf(os.Stderr, "%s\n", color.GreenString("Done"))
